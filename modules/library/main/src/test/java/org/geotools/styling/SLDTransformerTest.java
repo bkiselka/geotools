@@ -30,6 +30,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,6 +43,7 @@ import org.custommonkey.xmlunit.SimpleNamespaceContext;
 import org.custommonkey.xmlunit.exceptions.XpathException;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.factory.GeoTools;
+import org.geotools.util.GrowableInternationalString;
 import org.junit.Before;
 import org.junit.Test;
 import org.opengis.filter.FilterFactory2;
@@ -883,8 +885,8 @@ public class SLDTransformerTest {
         
         // check RasterSymbolizer just has the default geometry value 
         // (which is not a default in SLD, just in our builder)
-        assertXpathEvaluatesTo("1", "count(/sld:RasterSymbolizer/*)", doc);
-        assertXpathEvaluatesTo("grid", "/sld:RasterSymbolizer/sld:Geometry/ogc:PropertyName", doc);
+        assertXpathEvaluatesTo("1", "count(/sld:RasterSymbolizer)", doc);
+        assertXpathEvaluatesTo("", "/sld:RasterSymbolizer/sld:Geometry/ogc:PropertyName", doc);
     }
     
     @Test 
@@ -921,6 +923,43 @@ public class SLDTransformerTest {
         Document doc = buildTestDocument(xml);
         
         assertXpathEvaluatesTo("1", "/sld:StyledLayerDescriptor/sld:NamedLayer/sld:UserStyle/sld:IsDefault", doc);
+    }
+    
+    @Test
+    public void testLocalizedTitle() throws Exception {
+        RuleImpl rule = new RuleImpl();
+        GrowableInternationalString intString = new GrowableInternationalString("title")
+        {
+
+            @Override
+            public String toString() {
+                return super.toString(null);
+            }
+            
+        };
+        intString.add(Locale.ITALIAN, "titolo");
+        intString.add(Locale.FRENCH, "titre");
+        intString.add(Locale.CANADA_FRENCH, "titre");
+        rule.getDescription().setTitle(intString);
+        String xml = transformer.transform(rule);
+        assertTrue(xml.contains("<sld:Title>title"));
+        assertTrue(xml.contains("<sld:Localized lang=\""+Locale.ITALIAN.toString()+"\">titolo</sld:Localized>"));
+        assertTrue(xml.contains("<sld:Localized lang=\""+Locale.FRENCH.toString()+"\">titre</sld:Localized>"));
+        assertTrue(xml.contains("<sld:Localized lang=\""+Locale.CANADA_FRENCH.toString()+"\">titre</sld:Localized>"));
+    }
+    
+    public void testLocalizedAbstract() throws Exception {
+        RuleImpl rule = new RuleImpl();
+        GrowableInternationalString intString = new GrowableInternationalString("title");
+        intString.add(Locale.ITALIAN, "titolo");
+        intString.add(Locale.FRENCH, "titre");
+        intString.add(Locale.CANADA_FRENCH, "titre");
+        rule.getDescription().setAbstract(intString);
+        String xml = transformer.transform(rule);
+        assertTrue(xml.contains("<sld:Abstract>title"));
+        assertTrue(xml.contains("<sld:Localized lang=\""+Locale.ITALIAN.toString()+"\">titolo</sld:Localized>"));
+        assertTrue(xml.contains("<sld:Localized lang=\""+Locale.FRENCH.toString()+"\">titre</sld:Localized>"));
+        assertTrue(xml.contains("<sld:Localized lang=\""+Locale.CANADA_FRENCH.toString()+"\">titre</sld:Localized>"));
     }
     
     @Test

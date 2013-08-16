@@ -26,6 +26,26 @@ But first to upgrade - change your dependency to |release| (or an appropriate st
         ....
     </dependencies>
 
+GeoTools 10.0
+-------------
+
+.. sidebar:: Wiki
+
+   * `GeoTools 10.0 <http://docs.codehaus.org/display/GEOTOOLS/10.x>`_
+
+   For background details on any API changes review the change proposals above.
+
+GeoTools 10 add significant improvements in the coverage reading API.
+For those migrating the first visible benefit is that referring to a generic grid coverage reader does not require anymore to use AbstractGridCoverage2DReader (an abstract class) but tto the new GridCoverage2DReader interface. The old usage is still supported though, as most readers are still extending the same base class, but the usage of the interface allows for reader wrappers.
+
+BEFORE::
+
+  AbstractGridCoverage2DReader reader = format.getReader(source);
+  
+AFTER::
+ 
+  GridCoverage2DReader reader = format.getReader(source);
+
 GeoTools 9.0
 ------------
 
@@ -39,6 +59,28 @@ GeoTools 9 has resolved a long standing conflict between FeatureCollection actin
 streaming large datasets vs. acting as a familiar Java Collection. The Java 5 "for each" syntax prevents
 the safe use of Iterator (as we cannot ensure it will be closed). As a result FeatureCollection no longer
 can extend java Collection and is acting as a pure "result set" with streaming access provided by FeatureIterator.
+
+ReferencedEnvelope and CRS
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ReferencedEnvelope has in the past only supported 2D extents, we have introduced the subclass ReferencedEnvelope3D
+to support CoordianteReferenceSystems with three dimensions.
+
+There is now a new factory method to safely construct the appropriate implementation for a provided CoordinateReferenceSystem
+as shown below.
+
+BEFORE::
+
+  ReferencedEnvelope bbox = new ReferencedEnvelope( crs );
+  ReferencedEnvelope copy = new ReferencedEnvelope( bbox );
+  
+AFTER::
+  
+  ReferencedEnvelope bbox = ReferencedEnvelope.create( crs );
+  ReferencedEnvelope copy = ReferencedEnvelope.create( bbox );
+
+This represents an *incompatible API change*, existing code using "new ReferencedEnvelope" may now throw
+a RuntimeException when supplied with an incompatible CoordianteReferenceSystem.
 
 FeatureCollection Add
 ^^^^^^^^^^^^^^^^^^^^^
@@ -178,6 +220,7 @@ JAVA7 using try-with-resource syntax for Iterator that implements Closeable::
         }
     }
     
+
 GeoTools 8.0
 ------------
 

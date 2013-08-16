@@ -16,7 +16,8 @@
  */
 package org.geotools.styling;
 
-import java.awt.*;
+import java.awt.Component;
+import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -31,12 +32,19 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.geotools.data.Base64;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.factory.GeoTools;
 import org.geotools.filter.ExpressionDOMParser;
 import org.geotools.resources.i18n.ErrorKeys;
 import org.geotools.resources.i18n.Errors;
+import org.geotools.util.GrowableInternationalString;
+import org.geotools.util.SimpleInternationalString;
 import org.opengis.filter.Filter;
 import org.opengis.filter.FilterFactory;
 import org.opengis.filter.FilterFactory2;
@@ -44,16 +52,14 @@ import org.opengis.filter.expression.Expression;
 import org.opengis.filter.expression.Function;
 import org.opengis.filter.expression.Literal;
 import org.opengis.filter.expression.PropertyName;
+import org.opengis.util.InternationalString;
 import org.w3c.dom.CharacterData;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
-
-import javax.imageio.ImageIO;
-import javax.swing.Icon;
-import javax.swing.ImageIcon;
 
 /**
  * TODO: This really needs to be container ready
@@ -127,6 +133,9 @@ public class SLDParser {
     /** provides complete control for detecting relative onlineresources */
     private ResourceLocator onlineResourceLocator;
 
+    private EntityResolver entityResolver;
+    
+    
     /**
      * Create a Stylereader - use if you already have a dom to parse.
      * 
@@ -298,6 +307,16 @@ public class SLDParser {
     }
 
     /**
+     * Sets the EntityResolver implementation that will be used by DocumentBuilder to 
+     * resolve XML external entities.
+     * 
+     * @param entityResolver
+     */
+    public void setEntityResolver(EntityResolver entityResolver) {
+        this.entityResolver = entityResolver;
+    }
+    
+    /**
      * Internal setter for source url.
      */
     void setSourceUrl(URL sourceUrl) {
@@ -307,6 +326,18 @@ public class SLDParser {
         }
     }
 
+    protected javax.xml.parsers.DocumentBuilder newDocumentBuilder(boolean namespaceAware) throws ParserConfigurationException {
+        javax.xml.parsers.DocumentBuilderFactory dbf = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(namespaceAware);        
+        javax.xml.parsers.DocumentBuilder db = dbf.newDocumentBuilder();
+        
+        if (entityResolver != null) {
+            db.setEntityResolver(entityResolver);
+        }
+        
+        return db;
+    }
+    
     /**
      * Read the xml inputsource provided and create a Style object for each user style found
      * 
@@ -316,12 +347,8 @@ public class SLDParser {
      *             if a parsing error occurs
      */
     public Style[] readXML() {
-        javax.xml.parsers.DocumentBuilderFactory dbf = javax.xml.parsers.DocumentBuilderFactory
-                .newInstance();
-        dbf.setNamespaceAware(true);
         try {
-            javax.xml.parsers.DocumentBuilder db = dbf.newDocumentBuilder();
-            dom = db.parse(source);
+            dom = newDocumentBuilder(true).parse(source);
         } catch (javax.xml.parsers.ParserConfigurationException pce) {
             throw new RuntimeException(pce);
         } catch (org.xml.sax.SAXException se) {
@@ -395,13 +422,8 @@ public class SLDParser {
     }
 
     public StyledLayerDescriptor parseSLD() {
-        javax.xml.parsers.DocumentBuilderFactory dbf = javax.xml.parsers.DocumentBuilderFactory
-                .newInstance();
-        dbf.setNamespaceAware(true);
-
         try {
-            javax.xml.parsers.DocumentBuilder db = dbf.newDocumentBuilder();
-            dom = db.parse(source);
+            dom = newDocumentBuilder(true).parse(source);
             // for our next trick do something with the dom.
 
             // NodeList nodes = findElements(dom, "StyledLayerDescriptor");
@@ -689,10 +711,7 @@ public class SLDParser {
     public NamedStyle parseNamedStyle(Node n) {
         if (dom == null) {
             try {
-                javax.xml.parsers.DocumentBuilderFactory dbf = javax.xml.parsers.DocumentBuilderFactory
-                        .newInstance();
-                javax.xml.parsers.DocumentBuilder db = dbf.newDocumentBuilder();
-                dom = db.newDocument();
+                dom = newDocumentBuilder(false).newDocument();
             } catch (javax.xml.parsers.ParserConfigurationException pce) {
                 throw new RuntimeException(pce);
             }
@@ -741,10 +760,7 @@ public class SLDParser {
     public Style parseStyle(Node n) {
         if (dom == null) {
             try {
-                javax.xml.parsers.DocumentBuilderFactory dbf = javax.xml.parsers.DocumentBuilderFactory
-                        .newInstance();
-                javax.xml.parsers.DocumentBuilder db = dbf.newDocumentBuilder();
-                dom = db.newDocument();
+                dom = newDocumentBuilder(false).newDocument();
             } catch (javax.xml.parsers.ParserConfigurationException pce) {
                 throw new RuntimeException(pce);
             }
@@ -778,9 +794,10 @@ public class SLDParser {
             if (childName.equalsIgnoreCase("Name")) {
                 style.setName(firstChildValue);
             } else if (childName.equalsIgnoreCase("Title")) {
-                style.setTitle(firstChildValue);
+                
+                style.getDescription().setTitle(parseInternationalString(child));
             } else if (childName.equalsIgnoreCase("Abstract")) {
-                style.setAbstract(firstChildValue);
+                style.getDescription().setAbstract(parseInternationalString(child));
             } else if (childName.equalsIgnoreCase("IsDefault")) {
                 if("1".equals(firstChildValue)) {
                     style.setDefault(true);
@@ -824,9 +841,9 @@ public class SLDParser {
             if (childName.equalsIgnoreCase("Name")) {
                 ft.setName(getFirstChildValue(child));
             } else if (childName.equalsIgnoreCase("Title")) {
-                ft.setTitle(getFirstChildValue(child));
+                ft.getDescription().setTitle(parseInternationalString(child));
             } else if (childName.equalsIgnoreCase("Abstract")) {
-                ft.setAbstract(getFirstChildValue(child));
+                ft.getDescription().setAbstract(parseInternationalString(child));
             } else if (childName.equalsIgnoreCase("FeatureTypeName")) {
                 ft.setFeatureTypeName(getFirstChildValue(child));
             } else if (childName.equalsIgnoreCase("SemanticTypeIdentifier")) {
@@ -897,9 +914,9 @@ public class SLDParser {
             if (childName.equalsIgnoreCase("Name")) {
                 rule.setName(getFirstChildValue(child));
             } else if (childName.equalsIgnoreCase("Title")) {
-                rule.setTitle(getFirstChildValue(child));
+                rule.getDescription().setTitle(parseInternationalString(child));
             } else if (childName.equalsIgnoreCase("Abstract")) {
-                rule.setAbstract(getFirstChildValue(child));
+                rule.getDescription().setAbstract(parseInternationalString(child));
             } else if (childName.equalsIgnoreCase("MinScaleDenominator")) {
                 rule.setMinScaleDenominator(Double
                         .parseDouble(getFirstChildValue(child)));
@@ -937,6 +954,73 @@ public class SLDParser {
         rule.setSymbolizers((Symbolizer[]) symbolizers.toArray(new Symbolizer[0]));
 
         return rule;
+    }
+    
+    
+
+    /**
+     * Parse a node with mixed content containing internationalized elements in the
+     * form: <Localized lang="locale">text</Localized>
+     * 
+     * @param root
+     * @return
+     */
+    private InternationalString parseInternationalString(Node root) {
+        if (LOGGER.isLoggable(Level.FINEST)) {
+            LOGGER.finest("parsingInternationalString " + root);
+        }
+    
+        NodeList children = root.getChildNodes();
+        final int length = children.getLength();
+        StringBuilder text = new StringBuilder();
+    
+        Map<String, String> translations = new HashMap<String, String>();
+    
+        for (int i = 0; i < length; i++) {
+            Node child = children.item(i);
+    
+            if ((child == null)) {
+                continue;
+            } else if (child.getNodeType() == Node.TEXT_NODE
+                    || child.getNodeType() == Node.CDATA_SECTION_NODE) {
+                // append text as is
+                String value = child.getNodeValue();
+                if (value == null)
+                    continue;
+                text.append(value.trim());
+            } else if (child.getNodeType() == Node.ELEMENT_NODE) {
+                // parse value elements
+                if (LOGGER.isLoggable(Level.FINEST)) {
+                    LOGGER.finest("about to parse " + child.getLocalName());
+                }
+                Element element = (Element) child;
+                if (element.getTagName().equalsIgnoreCase("localized")) {
+                    String lang = element.getAttribute("lang");
+                    String translation = getFirstChildValue(element);
+    
+                    translations.put(lang, translation);
+                }
+            } else
+                continue;
+        }
+    
+        if (translations.size() > 0) {
+            GrowableInternationalString intString = new GrowableInternationalString(
+                    text.toString()) {
+    
+                @Override
+                public String toString() {
+                    return super.toString(null);
+                }
+    
+            };
+            for (String lang : translations.keySet()) {
+                intString.add("", "_" + lang, translations.get(lang));
+            }
+            return intString;
+        } else {
+            return new SimpleInternationalString(getFirstChildValue(root));
+        }
     }
 
     /** Internal parse method - made protected for unit testing */
@@ -1863,7 +1947,7 @@ public class SLDParser {
                 // process the css entry
                 //
                 if (res.equalsIgnoreCase(strokeString)) {
-                    Expression color = parseCssParameter(child, false);
+                    Expression color = parseCssParameter(child, true);
                     stroke.setColor(color);
                 } else if (res.equalsIgnoreCase("width") || res.equalsIgnoreCase("stroke-width")) {
                     Expression width = parseCssParameter(child, false);

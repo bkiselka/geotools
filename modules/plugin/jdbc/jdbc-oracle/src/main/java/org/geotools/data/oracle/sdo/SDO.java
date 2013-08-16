@@ -106,7 +106,7 @@ public final class SDO {
      * </ul>
      * 
      * <p>
-     * Definition provided by Oracle Spatial Userï¿½s Guide and Reference.
+     * Definition provided by Oracle Spatial User�s Guide and Reference.
      * </p>
      *
      * @param geom
@@ -1726,7 +1726,7 @@ public final class SDO {
             // Use all Cordiantes
             return coords;
         }
-        final int LEN = D(GTYPE) + L(GTYPE);
+        final int LEN = D(GTYPE);
 
         int start = (STARTING_OFFSET - 1) / LEN;
         int end = (ENDING_OFFSET != -1) ? ((ENDING_OFFSET - 1) / LEN)
@@ -2776,7 +2776,7 @@ HOLES:
             return null;
         }
 
-        final int LEN = D(GTYPE) + L(GTYPE);
+        final int LEN = D(GTYPE);
 
         int start = (STARTING_OFFSET - 1) / LEN;
         int end = start + INTERPRETATION;
@@ -2837,7 +2837,7 @@ HOLES:
             return null;
         }
 
-        final int LEN = D(GTYPE) + L(GTYPE);
+        //final int LEN = D(GTYPE);
         final int endTriplet = (N != -1) ? (triplet + N) : (elemInfo.length / 3);
 
         List list = new LinkedList();
@@ -2906,7 +2906,6 @@ LINES:      // bad bad gotos jody
             LOGGER.warning( "Could not create MultiPolygon with INTERPRETATION "+INTERPRETATION +" - we can only represent 1 for straight edges, or 3 for rectangle");
             return null;
         }
-        final int LEN = D(GTYPE) + L(GTYPE);
         final int endTriplet = (N != -1) ? (triplet + N)
                                          : ((elemInfo.length / 3) + 1);
 
@@ -2972,15 +2971,12 @@ POLYGONS:
         final int GTYPE, final int SRID, final int[] elemInfo,
         final int triplet, CoordinateSequence coords, final int N) {
         final int STARTING_OFFSET = STARTING_OFFSET(elemInfo, triplet);
-        final int eTYPE = ETYPE(elemInfo, triplet);
-        final int INTERPRETATION = INTERPRETATION(elemInfo, triplet);
 
         final int LENGTH = coords.size()*D(GTYPE);
         
         if (!(STARTING_OFFSET >= 1) || !(STARTING_OFFSET <= LENGTH))
             throw new IllegalArgumentException("ELEM_INFO STARTING_OFFSET "+STARTING_OFFSET+" inconsistent with ORDINATES length "+coords.size());
         
-        final int LEN = D(GTYPE) + L(GTYPE);
         final int endTriplet = (N != -1) ? (triplet + N)
                                          : ((elemInfo.length / 3) + 1);
 

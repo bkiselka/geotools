@@ -2,7 +2,7 @@
  *    GeoTools - The Open Source Java GIS Toolkit
  *    http://geotools.org
  * 
- *    (C) 2001-2008, Open Source Geospatial Foundation (OSGeo)
+ *    (C) 2001-2013, Open Source Geospatial Foundation (OSGeo)
  *
  *    This library is free software; you can redistribute it and/or
  *    modify it under the terms of the GNU Lesser General Public
@@ -43,6 +43,7 @@ import org.geotools.geometry.Envelope2D;
 import org.geotools.metadata.iso.spatial.PixelTranslation;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.operation.matrix.XAffineTransform;
+import org.geotools.referencing.operation.transform.AffineTransform2D;
 import org.geotools.resources.CRSUtilities;
 import org.geotools.resources.i18n.ErrorKeys;
 import org.geotools.resources.i18n.Errors;
@@ -81,7 +82,15 @@ public final class CoverageUtilities {
 	 */
 	public static final InternationalString NODATA=Vocabulary.formatInternational(VocabularyKeys.NODATA);
 	
-    public static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform();
+	
+    /**
+     * Axes transposition for swapping Lat and Lon axes.
+     */
+    public static final AffineTransform AXES_SWAP= new AffineTransform2D(0,1,1,0,0,0);
+	
+    /** Identity affine transformation.*/
+    public static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform2D(AffineTransform.getRotateInstance(0));
+    
     /**
      * {@link AffineTransform} that can be used to go from an image datum placed
      * at the center of pixels to one that is placed at ULC.
@@ -665,4 +674,41 @@ public final class CoverageUtilities {
 			throw new IllegalAccessError(Errors.format(ErrorKeys.ILLEGAL_ARGUMENT_$2,"dataType",dataType));
 		}
 	}
+	
+    /**
+     * Unified Code for Units of Measure (UCUM) 
+     */
+    public static class UCUM {
+
+        /**
+         * An UCUM Unit instance simply made of name and symbol.
+         */
+        public static class UCUMUnit {
+
+            private String name;
+
+            private String symbol;
+
+            public UCUMUnit(String name, String symbol) {
+                this.name = name;
+                this.symbol = symbol;
+            }
+
+            public String getName() {
+                return name;
+            }
+
+            public String getSymbol() {
+                return symbol;
+            }
+        }
+
+        /**
+         * Commonly used UCUM units. In case this set will grow too much, we may consider importing some UCUM specialized library.
+         */
+        public final static UCUMUnit TIME_UNITS = new UCUMUnit("second", "s");
+
+        public final static UCUMUnit ELEVATION_UNITS = new UCUMUnit("meter", "m");
+
+    }
 }

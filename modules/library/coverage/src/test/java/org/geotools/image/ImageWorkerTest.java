@@ -352,6 +352,13 @@ public final class ImageWorkerTest extends GridProcessingTestBase {
 	        worker.writeJPEG(outFile, "JPEG-LS", 0.75f, true);
 	        readWorker = new ImageWorker(ImageIO.read(outFile));
 	        show(readWorker, "Native JPEG LS");
+        } else {
+            try{
+                worker.writeJPEG(outFile, "JPEG-LS", 0.75f, true);
+                assertFalse(true);
+            } catch (Exception e) {
+                // TODO: handle exception
+            }
         }
 
         // /////////////////////////////////////////////////////////////////////
@@ -788,6 +795,60 @@ public final class ImageWorkerTest extends GridProcessingTestBase {
     @Test
     public void testOpacityAlphaRGBDirect() {
         testAlphaRGB(true);
+    }
+    
+    @Test
+    public void testYCbCr() {
+        assertTrue("Assertions should be enabled.", ImageWorker.class.desiredAssertionStatus());
+        // check the presence of the PYCC.pf file that contains the profile for the YCbCr color space
+        if(ImageWorker.CS_PYCC==null){
+            System.out.println("testYCbCr disabled since we are unable to locate the YCbCr color profile");
+            return;
+        }
+        // RGB component color model
+        ImageWorker worker = new ImageWorker(getSyntheticRGB(false));
+        
+        RenderedImage image = worker.getRenderedImage();
+        assertTrue(image.getColorModel() instanceof ComponentColorModel);
+        assertTrue(!image.getColorModel().hasAlpha());
+        int sample = image.getTile(0, 0).getSample(0, 0, 2);
+        assertEquals(0, sample);
+        
+        assertFalse(worker.isColorSpaceYCbCr());
+        worker.forceColorSpaceYCbCr();
+        assertTrue(worker.isColorSpaceYCbCr());
+        worker.forceColorSpaceRGB();
+        assertFalse(worker.isColorSpaceYCbCr());
+        assertTrue(worker.isColorSpaceRGB());
+        
+        // RGB Palette
+        worker.forceBitmaskIndexColorModel();
+        image = worker.getRenderedImage();
+        assertTrue(image.getColorModel() instanceof IndexColorModel);
+        assertTrue(!image.getColorModel().hasAlpha());
+        
+        assertFalse(worker.isColorSpaceYCbCr());
+        worker.forceColorSpaceYCbCr();
+        assertTrue(worker.isColorSpaceYCbCr());   
+        worker.forceColorSpaceRGB();
+        assertFalse(worker.isColorSpaceYCbCr());
+        assertTrue(worker.isColorSpaceRGB());     
+        
+        // RGB DirectColorModel
+        worker = new ImageWorker(getSyntheticRGB(true));        
+        image = worker.getRenderedImage();
+        assertTrue(image.getColorModel() instanceof DirectColorModel);
+        assertTrue(!image.getColorModel().hasAlpha());
+        sample = image.getTile(0, 0).getSample(0, 0, 2);
+        assertEquals(0, sample);
+        
+        assertFalse(worker.isColorSpaceYCbCr());
+        worker.forceColorSpaceYCbCr();
+        assertTrue(worker.isColorSpaceYCbCr()); 
+        worker.forceColorSpaceRGB();
+        assertFalse(worker.isColorSpaceYCbCr());
+        assertTrue(worker.isColorSpaceRGB());       
+        
     }
     
     private void testAlphaRGB(boolean direct) {

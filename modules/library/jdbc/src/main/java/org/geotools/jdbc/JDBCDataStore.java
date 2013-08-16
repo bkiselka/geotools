@@ -35,12 +35,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
@@ -193,12 +194,6 @@ public final class JDBCDataStore extends ContentDataStore
     protected static final String FEATURE_ASSOCIATION_TABLE = "feature_associations";
     
     /**
-     * The default primary key finder, looks in the default metadata table first, uses heuristics later
-     */
-    protected static final PrimaryKeyFinder DEFAULT_PRIMARY_KEY_FINDER = new CompositePrimaryKeyFinder(
-            new MetadataTablePrimaryKeyFinder(), new HeuristicPrimaryKeyFinder());
-    
-    /**
      * The envelope returned when bounds is called against a geometryless feature type
      */
     protected static final ReferencedEnvelope EMPTY_ENVELOPE = new ReferencedEnvelope();  
@@ -262,9 +257,10 @@ public final class JDBCDataStore extends ContentDataStore
     protected boolean exposePrimaryKeyColumns = false;
     
     /**
-     * Finds the primary key definitions
+     * Finds the primary key definitions (instantiated here because the finders might keep state)
      */
-    protected PrimaryKeyFinder primaryKeyFinder = DEFAULT_PRIMARY_KEY_FINDER;
+    protected PrimaryKeyFinder primaryKeyFinder = new CompositePrimaryKeyFinder(
+            new MetadataTablePrimaryKeyFinder(), new HeuristicPrimaryKeyFinder());
     
     /**
      * Contains the SQL definition of the various virtual tables
@@ -853,8 +849,25 @@ public final class JDBCDataStore extends ContentDataStore
 
         try {
             DatabaseMetaData metaData = cx.getMetaData();
-            ResultSet tables = metaData.getTables(cx.getCatalog(), databaseSchema, "%",
-                    new String[] { "TABLE", "VIEW" });
+            Set<String> availableTableTypes = new HashSet<String>();
+            String[] desiredTableTypes = new String[] { "TABLE", "VIEW", "SYNONYM" };
+            ResultSet tableTypes = null;
+            try{
+                tableTypes = metaData.getTableTypes();
+                while(tableTypes.next()){
+                    availableTableTypes.add(tableTypes.getString("TABLE_TYPE"));
+                }
+            }finally{
+                closeSafe(tableTypes);
+            }
+            Set<String> queryTypes = new HashSet<String>();
+            for (String desiredTableType : desiredTableTypes) {
+                if(availableTableTypes.contains(desiredTableType)){
+                    queryTypes.add(desiredTableType);
+                }
+            }
+            ResultSet tables = metaData.getTables(null, databaseSchema, "%",
+                    queryTypes.toArray(new String[0]));
             if(fetchSize > 1) {
                 tables.setFetchSize(fetchSize);
             }
@@ -1940,7 +1953,31 @@ public final class JDBCDataStore extends ContentDataStore
             }
         }
         
-        return createTableSQL(featureType.getTypeName(), columnNames, sqlTypeNames, nillable, "fid", featureType);
+        return createTableSQL(featureType.getTypeName(), columnNames, sqlTypeNames, nillable, 
+            findPrimaryKeyColumnName(featureType), featureType);
+    }
+
+    /*
+     * search feature type looking for suitable unique column for primary key.
+     */
+    protected String findPrimaryKeyColumnName(SimpleFeatureType featureType) {
+        String[] suffix = new String[]{"", "_1", "_2"};
+        String[] base = new String[]{"fid", "id", "gt_id", "ogc_fid"};
+
+        for (String b : base) {
+            O: for (String s : suffix) {
+                String name = b + s;
+                for (AttributeDescriptor ad : featureType.getAttributeDescriptors()) {
+                    if (ad.getLocalName().equalsIgnoreCase(name)) {
+                        continue O;
+                    }
+                }
+                return name;
+            }
+        }
+
+        //practically should never get here, but just fall back and fail later 
+        return "fid";
     }
 
     /**
@@ -3322,7 +3359,7 @@ public final class JDBCDataStore extends ContentDataStore
         for (Iterator a = featureType.getAttributeDescriptors().iterator(); a.hasNext();) {
             AttributeDescriptor attribute = (AttributeDescriptor) a.next();
             if (attribute instanceof GeometryDescriptor) {
-                String geometryColumn = featureType.getGeometryDescriptor().getLocalName();
+                String geometryColumn = attribute.getLocalName();
                 dialect.encodeGeometryEnvelope(featureType.getTypeName(), geometryColumn, sql);
                 sql.append(",");
             }

@@ -28,8 +28,8 @@ import javax.xml.namespace.QName;
 
 import org.geotools.data.FeatureSource;
 import org.geotools.data.complex.filter.XPath;
-import org.geotools.data.complex.filter.XPath.Step;
-import org.geotools.data.complex.filter.XPath.StepList;
+import org.geotools.data.complex.filter.XPathUtil.Step;
+import org.geotools.data.complex.filter.XPathUtil.StepList;
 import org.geotools.data.joining.JoiningNestedAttributeMapping;
 import org.geotools.feature.Types;
 import org.geotools.gml3.GML;
@@ -79,19 +79,27 @@ public class FeatureTypeMapping {
 
     private Expression featureFidMapping;
 
+    private boolean isDenormalised;
+
     /**
      * No parameters constructor for use by the digester configuration engine as a JavaBean
      */
     public FeatureTypeMapping() {
-        this(null, null, new LinkedList<AttributeMapping>(), new NamespaceSupport());
+        this(null, null, new LinkedList<AttributeMapping>(), new NamespaceSupport(), true);
     }
 
     public FeatureTypeMapping(FeatureSource<? extends FeatureType, ? extends Feature> source,
             AttributeDescriptor target, List<AttributeMapping> mappings, NamespaceSupport namespaces) {
+        this(source, target, mappings, namespaces, true);
+    }
+
+    public FeatureTypeMapping(FeatureSource<? extends FeatureType, ? extends Feature> source,
+            AttributeDescriptor target, List<AttributeMapping> mappings, NamespaceSupport namespaces, boolean isDenormalised) {
         this.source = source;
         this.target = target;
         this.attributeMappings = new LinkedList<AttributeMapping>(mappings);
         this.namespaces = namespaces;
+        this.isDenormalised = isDenormalised;
         
         // find id expression
         for (AttributeMapping attMapping : attributeMappings) {
@@ -356,6 +364,14 @@ public class FeatureTypeMapping {
             }
         }
         return expressions;
+    }
+
+    public boolean isDenormalised() {
+        return isDenormalised;
+    }
+
+    public void setDenormalised(boolean isDenormalised) {
+        this.isDenormalised = isDenormalised;
     }
 
 }

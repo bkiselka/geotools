@@ -105,7 +105,7 @@ public final class GeoTools {
     /**
      * The current GeoTools version. The separator character must be the dot.
      */
-    private static final Version VERSION = new Version(PROPS.getProperty("version", "9-SNAPSHOT"));
+    private static final Version VERSION = new Version(PROPS.getProperty("version", "10-SNAPSHOT"));
 
     /**
      * The version control (svn) revision at which this version of geotools was built.
@@ -479,8 +479,7 @@ public final class GeoTools {
      * @return {@code true} if at least one hint changed as a result of this scan,
      *         or {@code false} otherwise.
      */
-    static boolean scanForSystemHints(final Hints hints) {
-        assert Thread.holdsLock(hints);
+    static boolean scanForSystemHints(final Map<RenderingHints.Key, Object> hints) {
         boolean changed = false;
         synchronized (BINDINGS) {
             for (final Map.Entry<String, RenderingHints.Key> entry : BINDINGS.entrySet()) {
